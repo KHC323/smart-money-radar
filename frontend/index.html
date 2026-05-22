@@ -519,9 +519,9 @@ function extractReturns(klines) {
 async function loadBTCBias() {
   try {
     const [kD, k4H, k1H] = await Promise.all([
-      sapi('/api/v3/klines','symbol=BTCUSDT&interval=1d&limit=48'),
-      sapi('/api/v3/klines','symbol=BTCUSDT&interval=4h&limit=48'),
-      sapi('/api/v3/klines','symbol=BTCUSDT&interval=1h&limit=72'),
+      fapi('/fapi/v1/klines','symbol=BTCUSDT&interval=1d&limit=48'),
+      fapi('/fapi/v1/klines','symbol=BTCUSDT&interval=4h&limit=48'),
+      fapi('/fapi/v1/klines','symbol=BTCUSDT&interval=1h&limit=72'),
     ]);
     btcPrices1H = k1H.map(k=>parseFloat(k[4]));
     const cvdD=calcCVD(kD), cvd4H=calcCVD(k4H), cvd1H=calcCVD(k1H);
@@ -671,10 +671,10 @@ function computeGrade(d) {
 }
 async function loadCoin(symbol,spotTick,futTick){
   const [sK1H,fK1H,sKD,sK4H,oiH,fund,ls]=await Promise.allSettled([
-    sapi('/api/v3/klines',`symbol=${symbol}&interval=1h&limit=72`),
     fapi('/fapi/v1/klines',`symbol=${symbol}&interval=1h&limit=72`),
-    sapi('/api/v3/klines',`symbol=${symbol}&interval=1d&limit=48`),
-    sapi('/api/v3/klines',`symbol=${symbol}&interval=4h&limit=48`),
+    fapi('/fapi/v1/klines',`symbol=${symbol}&interval=1h&limit=72`),
+    fapi('/fapi/v1/klines',`symbol=${symbol}&interval=1d&limit=48`),
+    fapi('/fapi/v1/klines',`symbol=${symbol}&interval=4h&limit=48`),
     fapi('/futures/data/openInterestHist',`symbol=${symbol}&period=1h&limit=8`),
     fapi('/fapi/v1/premiumIndex',`symbol=${symbol}`),
     fapi('/futures/data/globalLongShortAccountRatio',`symbol=${symbol}&period=1h&limit=4`),
@@ -744,9 +744,9 @@ async function startLoad(){
     setProgress(5,'取得幣種列表...');
     const info=await fapi('/fapi/v1/exchangeInfo');
     const allSymbols=info.symbols.filter(s=>s.quoteAsset==='USDT'&&s.status==='TRADING'&&s.contractType==='PERPETUAL').map(s=>s.symbol);
-    const [futArr,spotArr]=await Promise.all([fapi('/fapi/v1/ticker/24hr'),sapi('/api/v3/ticker/24hr')]);
+    const futArr=await fapi('/fapi/v1/ticker/24hr');
     const futMap={},spotMap={};
-    futArr.forEach(t=>{futMap[t.symbol]=t;}); spotArr.forEach(t=>{spotMap[t.symbol]=t;});
+    futArr.forEach(t=>{futMap[t.symbol]=t;spotMap[t.symbol]=t;});
     ['BTC','ETH','BNB','SOL'].forEach(b=>{
       const t=futMap[b+'USDT'];if(!t)return;
       const p=parseFloat(t.lastPrice),c=parseFloat(t.priceChangePercent);
@@ -958,8 +958,8 @@ async function wlRefreshAll(){
   const list=wlLoad();if(!list.length){wlRender();return;}if(wlLoading)return;
   wlLoading=true;document.getElementById('wlRefreshBtn').disabled=true;document.getElementById('wlProgressWrap').style.display='block';
   try{
-    const [futArr,spotArr]=await Promise.all([fapi('/fapi/v1/ticker/24hr'),sapi('/api/v3/ticker/24hr')]);
-    const futMap={},spotMap={};futArr.forEach(t=>{futMap[t.symbol]=t;});spotArr.forEach(t=>{spotMap[t.symbol]=t;});
+    const futArr=await fapi('/fapi/v1/ticker/24hr');
+    const futMap={},spotMap={};futArr.forEach(t=>{futMap[t.symbol]=t;spotMap[t.symbol]=t;});
     const valid=list.filter(s=>futMap[s]),invalid=list.filter(s=>!futMap[s]);
     if(invalid.length)showToast(`找不到以下合約：${invalid.map(s=>s.replace('USDT','')).join(', ')}`);
     const results=[];
