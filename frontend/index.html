@@ -408,8 +408,8 @@ select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);p
     <div style="display:flex">
       <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--accent)" id="anomalyTotal">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">掃描幣種</div></div>
       <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--neutral)" id="anomalyCount">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">量爆異常</div></div>
-      <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--long)" id="anomalyLong">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">多頭候選</div></div>
-      <div style="flex:1;padding:10px 14px;text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--short)" id="anomalyShort">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">空頭候選</div></div>
+      <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--long)" id="anomalyLong">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">✅ 可進場</div></div>
+      <div style="flex:1;padding:10px 14px;text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--short)" id="anomalyShort">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">⚠ 避開</div></div>
     </div>
   </div>
   <div id="anomalyProgress" style="display:none;margin-bottom:14px">
@@ -432,13 +432,13 @@ select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);p
       <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px">
         <thead>
           <tr style="border-bottom:2px solid var(--border2)">
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">排名</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">幣種</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">量倍數</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">24h漲跌</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">成交量倍數</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">📍 進場狀態</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">💰 建議進場</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">🛡 止損位</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">資金費率</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">方向判斷</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">異常評分</th>
           </tr>
         </thead>
         <tbody id="anomalyTbody"></tbody>
@@ -1132,47 +1132,72 @@ async function loadAnomalyRadar(){
         const avgVol=vols.reduce((a,b)=>a+b,0)/vols.length;
         const todayVol=parseFloat(klines[klines.length-1][7]);
         const volRatio=avgVol>0?todayVol/avgVol:1;
+        if(volRatio<2.0)continue;
 
-        if(volRatio<2.0)continue;  // must be at least 2x avg
+        // Key price levels
+        const closes=klines.slice(-21).map(k=>parseFloat(k[4]));
+        const ma20=closes.reduce((a,b)=>a+b,0)/closes.length;
+        const low5=Math.min(...klines.slice(-5).map(k=>parseFloat(k[3])));
+        const stopLoss=low5*0.97;  // 3% below 5-day low
 
         // CVD last 5 days
         const cvdSum=klines.slice(-5).reduce((s,k)=>{
           const buy=parseFloat(k[9]),total=parseFloat(k[5]);
           return s+(buy-(total-buy));
         },0);
-
-        // Direction logic
-        const priceUp=d.priceChange>0;
         const cvdBull=cvdSum>0;
-        const frExtreme=Math.abs(d.fundingRate)>0.08;
-        const frBearish=d.fundingRate>0.08;  // over-leveraged longs = dump risk
 
-        let direction,dirLabel,dirColor;
-        if(priceUp&&cvdBull&&!frBearish){
-          direction='long';dirLabel='多頭候選';dirColor='var(--long)';
-        }else if(priceUp&&frBearish){
-          direction='short';dirLabel='多單擠壓';dirColor='var(--short)';
+        const frBearish=d.fundingRate>0.08;
+        const frBullish=d.fundingRate<-0.05;
+        const priceUp=d.priceChange>0;
+
+        // Distance from MA
+        const distFromMA=(d.price-ma20)/ma20*100;
+        const overExtended=distFromMA>20;  // >20% above MA = extended
+
+        // ── Entry status ──
+        let status, statusLabel, statusColor, statusBg, entryNote;
+        if(frBearish&&priceUp){
+          // Overleveraged longs with price up = dump risk
+          status='avoid'; statusLabel='⚠ 避開'; statusColor='var(--short)'; statusBg='var(--short-dim)';
+          entryNote='資金費率過高，多單擠壓風險';
         }else if(!priceUp&&!cvdBull){
-          direction='short';dirLabel='空頭候選';dirColor='var(--short)';
+          // Price down + CVD bearish = pure short pressure
+          status='avoid'; statusLabel='⚠ 避開'; statusColor='var(--short)'; statusBg='var(--short-dim)';
+          entryNote='主力在出貨，避免接刀';
+        }else if(overExtended){
+          // Price too far from MA
+          status='wait'; statusLabel='⏳ 等待回調'; statusColor='var(--neutral)'; statusBg='var(--neutral-dim)';
+          entryNote=`已偏離均線 ${distFromMA.toFixed(0)}%，等回調至 $${fmtP(ma20)}`;
+        }else if(priceUp&&cvdBull&&!frBearish){
+          status='enter'; statusLabel='✅ 可進場'; statusColor='var(--long)'; statusBg='var(--long-dim)';
+          entryNote=`量爆 ${volRatio.toFixed(1)}x + CVD 向上`;
         }else{
-          direction='neutral';dirLabel='待確認';dirColor='var(--neutral)';
+          status='wait'; statusLabel='👀 觀察中'; statusColor='var(--neutral)'; statusBg='var(--neutral-dim)';
+          entryNote='訊號未完全確認';
         }
 
-        const score=volRatio*10+Math.abs(d.priceChange)*0.5+(frExtreme?20:0);
+        // Entry price range
+        const entryLow=d.price*0.99, entryHigh=d.price*1.01;
+        const tp=d.price*(status==='wait'?1.20*0.98:1.20);
 
-        results.push({...d,volRatio,avgVol,cvdBull,direction,dirLabel,dirColor,score});
+        const score=volRatio*10+Math.abs(d.priceChange)*0.5+(Math.abs(d.fundingRate)>0.08?20:0);
+        results.push({...d,volRatio,ma20,low5,stopLoss,cvdBull,distFromMA,
+          status,statusLabel,statusColor,statusBg,entryNote,
+          entryLow,entryHigh,tp,score});
       }catch(e){/* skip */}
     }
 
-    results.sort((a,b)=>b.score-a.score);
+    // Sort: 可進場 first, then wait, then avoid; within each group sort by score
+    const order={enter:0,wait:1,avoid:2};
+    results.sort((a,b)=>order[a.status]-order[b.status]||b.score-a.score);
 
-    const longCount=results.filter(r=>r.direction==='long').length;
-    const shortCount=results.filter(r=>r.direction==='short').length;
+    const enterCount=results.filter(r=>r.status==='enter').length;
+    const avoidCount=results.filter(r=>r.status==='avoid').length;
     document.getElementById('anomalyCount').textContent=results.length;
-    document.getElementById('anomalyLong').textContent=longCount;
-    document.getElementById('anomalyShort').textContent=shortCount;
+    document.getElementById('anomalyLong').textContent=enterCount;
+    document.getElementById('anomalyShort').textContent=avoidCount;
 
-    const medals=['🥇','🥈','🥉'];
     const tbody=document.getElementById('anomalyTbody');
     tbody.innerHTML=results.slice(0,30).map((r,i)=>{
       const base=r.symbol.replace('USDT','');
@@ -1182,18 +1207,25 @@ async function loadAnomalyRadar(){
       const volBarColor=r.volRatio>=5?'var(--short)':r.volRatio>=3?'var(--neutral)':'var(--long)';
       const frStr=(r.fundingRate>=0?'+':'')+r.fundingRate.toFixed(4)+'%';
       const frCls=r.fundingRate>0.08?'color:var(--short)':r.fundingRate<-0.05?'color:var(--long)':'color:var(--text2)';
-      const rank=i<3?medals[i]:`#${i+1}`;
+      const entryStr=r.status==='avoid'?'—':`$${fmtP(r.entryLow)} ~ $${fmtP(r.entryHigh)}`;
+      const slStr=r.status==='avoid'?'—':`$${fmtP(r.stopLoss)}`;
       return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
-        <td style="padding:10px 10px;color:var(--text3);font-size:13px">${rank}</td>
-        <td style="padding:10px 10px"><div style="font-weight:bold;color:#fff;font-size:13px">${base}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${fmtV(r.volume)} vol</div></td>
-        <td style="padding:10px 10px;text-align:right;font-weight:bold;${chgCls}">${chgStr}</td>
+        <td style="padding:10px 10px">
+          <div style="font-weight:bold;color:#fff;font-size:13px">${base}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${fmtV(r.volume)} · $${fmtP(r.price)}</div>
+        </td>
         <td style="padding:10px 10px;text-align:center">
           <div style="font-weight:bold;color:${volBarColor};margin-bottom:3px">${r.volRatio.toFixed(1)}x</div>
-          <div style="height:4px;background:var(--bg3);border-radius:2px;width:80px;margin:0 auto"><div style="height:100%;width:${volBarW}%;background:${volBarColor};border-radius:2px"></div></div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;width:70px;margin:0 auto"><div style="height:100%;width:${volBarW}%;background:${volBarColor};border-radius:2px"></div></div>
         </td>
+        <td style="padding:10px 10px;text-align:right;font-weight:bold;${chgCls}">${chgStr}</td>
+        <td style="padding:10px 10px;text-align:center">
+          <span style="font-size:11px;font-weight:bold;color:${r.statusColor};background:${r.statusBg};padding:3px 10px;border-radius:5px;border:1px solid ${r.statusColor}44;white-space:nowrap">${r.statusLabel}</span>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;max-width:140px;line-height:1.4">${r.entryNote}</div>
+        </td>
+        <td style="padding:10px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--long)">${entryStr}</td>
+        <td style="padding:10px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--short)">${slStr}</td>
         <td style="padding:10px 10px;text-align:right;${frCls}">${frStr}</td>
-        <td style="padding:10px 10px;text-align:center"><span style="font-size:11px;font-weight:bold;color:${r.dirColor};background:${r.dirColor}22;padding:2px 8px;border-radius:4px;border:1px solid ${r.dirColor}44">${r.dirLabel}</span></td>
-        <td style="padding:10px 10px;text-align:right;font-weight:bold;color:var(--neutral)">${r.score.toFixed(1)}</td>
       </tr>`;
     }).join('');
 
