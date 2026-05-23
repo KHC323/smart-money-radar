@@ -295,7 +295,8 @@ select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);p
   <div class="ticker-item"><span class="ticker-sym">BNB</span><span class="ticker-price" id="tkBNBp">--</span><span class="ticker-chg" id="tkBNBc">--</span></div>
   <div class="ticker-item"><span class="ticker-sym">SOL</span><span class="ticker-price" id="tkSOLp">--</span><span class="ticker-chg" id="tkSOLc">--</span></div>
   <div class="ticker-right">
-    <div class="status-dot"></div>
+    <div class="status-dot" id="statusDot"></div>
+    <span id="wsStatus" style="font-family:var(--mono);font-size:10px;color:var(--text3)">WS--</span>
     <div class="ticker-time" id="lastUpdate">--:--:--</div>
     <button class="refresh-btn" id="refreshBtn" onclick="startLoad()">⟳ 更新</button>
   </div>
@@ -1252,7 +1253,16 @@ wlRender();
 setInterval(()=>{if(!wlLoading&&document.getElementById('watchlistSection').classList.contains('show'))wlRefreshAll();},5*60*1000);
 // ── 即時價格 WebSocket ─────────────────────────────────────
 const livePrice = new Map();
-let _ws = null, _wsPending = false;
+let _ws = null, _wsTimer = null, _rafId = null;
+
+function _setWsStatus(s) {
+  const dot = document.getElementById('statusDot');
+  const lbl = document.getElementById('wsStatus');
+  if (!dot || !lbl) return;
+  if (s === 'on')  { dot.style.background = 'var(--long)';    dot.style.boxShadow = '0 0 6px var(--long)';  lbl.textContent = 'LIVE';  lbl.style.color = 'var(--long)'; }
+  else if (s === 'off') { dot.style.background = 'var(--short)'; dot.style.boxShadow = 'none'; lbl.textContent = 'WS斷線'; lbl.style.color = 'var(--short)'; }
+  else             { dot.style.background = 'var(--neutral)';  dot.style.boxShadow = 'none'; lbl.textContent = '連線中'; lbl.style.color = 'var(--neutral)'; }
+}
 
 function _flash(el, up) {
   el.classList.remove('lp-up','lp-dn');
@@ -1261,17 +1271,17 @@ function _flash(el, up) {
 }
 
 function _applyLive() {
-  _wsPending = false;
-
-  // ① Ticker bar (by fixed IDs)
-  const TK = {BTCUSDT:'BTC',ETHUSDT:'ETH',BNBUSDT:'BNB',SOLUSDT:'SOL'};
+  _rafId = null;
+  // ① Ticker bar
+  const TK = {BTCUSDT:'BTC', ETHUSDT:'ETH', BNBUSDT:'BNB', SOLUSDT:'SOL'};
   for (const [sym, base] of Object.entries(TK)) {
     const d = livePrice.get(sym); if (!d) continue;
     const pEl = document.getElementById('tk'+base+'p');
     const cEl = document.getElementById('tk'+base+'c');
     if (pEl) {
-      const prev = parseFloat(pEl.dataset.prev || d.p);
-      if (d.p !== prev) { _flash(pEl, d.p > prev); pEl.dataset.prev = d.p; }
+      const prev = pEl._lp || 0;
+      if (prev && d.p !== prev) _flash(pEl, d.p > prev);
+      pEl._lp = d.p;
       pEl.textContent = '$' + fmtP(d.p);
     }
     if (cEl) {
@@ -1279,38 +1289,49 @@ function _applyLive() {
       cEl.className = 'ticker-chg ' + (d.c >= 0 ? 't-up' : 't-dn');
     }
   }
-
-  // ② Scanner + watchlist cards (data-lp = price, data-lc = change%)
+  // ② 所有 data-lp（價格）/ data-lc（漲跌幅）元素
   document.querySelectorAll('[data-lp]').forEach(el => {
-    const d = livePrice.get(el.dataset.lp); if (!d) return;
-    const prev = parseFloat(el.dataset.prev || d.p);
-    if (d.p !== prev) { _flash(el, d.p > prev); el.dataset.prev = d.p; }
+    const d = livePrice.get(el.getAttribute('data-lp')); if (!d) return;
+    const prev = el._lp || 0;
+    if (prev && d.p !== prev) _flash(el, d.p > prev);
+    el._lp = d.p;
     el.textContent = '$' + fmtP(d.p);
   });
   document.querySelectorAll('[data-lc]').forEach(el => {
-    const d = livePrice.get(el.dataset.lc); if (!d) return;
+    const d = livePrice.get(el.getAttribute('data-lc')); if (!d) return;
     el.textContent = (d.c >= 0 ? '+' : '') + d.c.toFixed(2) + '%';
     el.className = el.className.replace(/\bup\b|\bdown\b/g, d.c >= 0 ? 'up' : 'down');
   });
 }
 
 function startWS() {
-  if (_ws) { try { _ws.close(); } catch(e){} }
-  _ws = new WebSocket('wss://fstream.binance.com/ws/!miniTicker@arr');
+  clearTimeout(_wsTimer);
+  if (_ws) { try { _ws.onclose = null; _ws.close(); } catch(e){} }
+  _setWsStatus('connecting');
+  _ws = new WebSocket('wss://fstream.binance.com/ws/!ticker@arr');
 
-  _ws.onmessage = e => {
-    JSON.parse(e.data).forEach(t => {
-      const p = parseFloat(t.c), o = parseFloat(t.o);
-      livePrice.set(t.s, { p, c: o > 0 ? (p - o) / o * 100 : 0 });
-    });
-    if (!_wsPending) {
-      _wsPending = true;
-      requestAnimationFrame(_applyLive);
-    }
+  _ws.onopen = () => {
+    _setWsStatus('on');
+    console.log('[WS] 已連線 Binance fstream');
   };
 
-  _ws.onclose = () => setTimeout(startWS, 3000);
-  _ws.onerror = () => { try { _ws.close(); } catch(e){} };
+  _ws.onmessage = e => {
+    try {
+      const arr = JSON.parse(e.data);
+      if (!Array.isArray(arr)) return;
+      arr.forEach(t => {
+        if (t.s) livePrice.set(t.s, { p: parseFloat(t.c), c: parseFloat(t.P) });
+      });
+      if (!_rafId) _rafId = requestAnimationFrame(_applyLive);
+    } catch(err) { console.warn('[WS] parse error', err); }
+  };
+
+  _ws.onclose = () => {
+    _setWsStatus('off');
+    _wsTimer = setTimeout(startWS, 3000);
+  };
+
+  _ws.onerror = () => { try { _ws.close(); } catch(err){} };
 }
 
 // Init — auto-start on page load
