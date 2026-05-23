@@ -36,6 +36,10 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .refresh-btn:disabled{opacity:.4;cursor:not-allowed}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--long);box-shadow:0 0 6px var(--long);animation:pulse 2s infinite;flex-shrink:0}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes lp-up{0%{background:rgba(0,229,160,.35);color:#fff}100%{background:transparent}}
+@keyframes lp-dn{0%{background:rgba(255,77,106,.35);color:#fff}100%{background:transparent}}
+.lp-up{animation:lp-up .7s ease-out}
+.lp-dn{animation:lp-dn .7s ease-out}
 .btc-banner{display:flex;align-items:center;gap:16px;padding:8px 24px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
 .btc-banner-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;white-space:nowrap;flex-shrink:0}
 .btc-bias-chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-family:var(--mono);font-size:11px;font-weight:bold;white-space:nowrap;flex-shrink:0}
@@ -950,7 +954,7 @@ function renderCard(d){
   let lqC='nc',lqS='--';if(liq){if(liq.shortLiq>liq.longLiq*1.5){lqS='空單主爆';lqC='bull';}else if(liq.longLiq>liq.shortLiq*1.5){lqS='多單主爆';lqC='bear';}else lqS='平衡';}
   const catLabel=category==='major'?'<span class="coin-cat cat-major">主流</span>':'<span class="coin-cat cat-alt">山寨</span>';
   const tags=signal.reasons.slice(0,3).map(r=>`<span class="tag tag-${r.t}">${r.x}</span>`).join('');
-  return `<div class="card ${cardCls}" onclick="showDetail('${symbol}')"><div class="card-topbar">${gradeHtml}<div style="display:flex;gap:6px;align-items:center">${corrHtml}${dailyHtml}</div></div><div class="card-header"><div class="coin-info"><div class="coin-icon">${base.slice(0,4)}</div><div><div class="coin-name">${base}</div><div class="coin-meta">${catLabel}<span>${fmtV(stats?.futuresVol||0)}</span></div></div></div><div class="card-right"><span class="signal-badge ${badgeCls}">${signal.label}</span><div class="price">$${fmtP(stats?.spotPrice||0)}</div><div class="price-change ${stats?.spotChange>=0?'up':'down'}">${(stats?.spotChange>=0?'+':'')+stats?.spotChange.toFixed(2)+'%'}</div></div></div><div class="mtf-row">${mtfHtml}</div>${conflictHtml}<div class="indicators"><div class="ind"><div class="ind-label">現貨 CVD</div><div class="ind-value ${sc2}">${scS}</div><div class="ind-sub">主力方向</div></div><div class="ind"><div class="ind-label">合約 CVD</div><div class="ind-value ${fc2}">${fcS}</div><div class="ind-sub">槓桿方向</div></div><div class="ind"><div class="ind-label">OI 變化</div><div class="ind-value ${oiC}">${oiS}</div><div class="ind-sub">8H / 1H ${d.oi1hPct!==null?(d.oi1hPct>0?'+':'')+d.oi1hPct.toFixed(2)+'%':'--'}</div></div><div class="ind"><div class="ind-label">資金費率</div><div class="ind-value ${fC}">${fS}</div><div class="ind-sub">擁擠方向</div></div><div class="ind"><div class="ind-label">多空比</div><div class="ind-value ${lsC}">${lsS}</div><div class="ind-sub">散戶情緒</div></div><div class="ind"><div class="ind-label">爆倉傾向</div><div class="ind-value ${lqC}">${lqS}</div><div class="ind-sub">近期爆倉</div></div></div><div class="score-section"><div class="score-header"><span class="score-title">SIGNAL STRENGTH</span><span class="score-num" style="color:${barColor}">${signal.score>0?'+':''}${signal.score.toFixed(1)}</span></div><div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${barColor}"></div></div></div><div class="reason-tags">${tags||'<span style="font-size:10px;color:var(--text3)">數據不足</span>'}</div></div>`;
+  return `<div class="card ${cardCls}" onclick="showDetail('${symbol}')"><div class="card-topbar">${gradeHtml}<div style="display:flex;gap:6px;align-items:center">${corrHtml}${dailyHtml}</div></div><div class="card-header"><div class="coin-info"><div class="coin-icon">${base.slice(0,4)}</div><div><div class="coin-name">${base}</div><div class="coin-meta">${catLabel}<span>${fmtV(stats?.futuresVol||0)}</span></div></div></div><div class="card-right"><span class="signal-badge ${badgeCls}">${signal.label}</span><div class="price" data-lp="${symbol}">$${fmtP(stats?.spotPrice||0)}</div><div class="price-change ${stats?.spotChange>=0?'up':'down'}" data-lc="${symbol}">${(stats?.spotChange>=0?'+':'')+stats?.spotChange.toFixed(2)+'%'}</div></div></div><div class="mtf-row">${mtfHtml}</div>${conflictHtml}<div class="indicators"><div class="ind"><div class="ind-label">現貨 CVD</div><div class="ind-value ${sc2}">${scS}</div><div class="ind-sub">主力方向</div></div><div class="ind"><div class="ind-label">合約 CVD</div><div class="ind-value ${fc2}">${fcS}</div><div class="ind-sub">槓桿方向</div></div><div class="ind"><div class="ind-label">OI 變化</div><div class="ind-value ${oiC}">${oiS}</div><div class="ind-sub">8H / 1H ${d.oi1hPct!==null?(d.oi1hPct>0?'+':'')+d.oi1hPct.toFixed(2)+'%':'--'}</div></div><div class="ind"><div class="ind-label">資金費率</div><div class="ind-value ${fC}">${fS}</div><div class="ind-sub">擁擠方向</div></div><div class="ind"><div class="ind-label">多空比</div><div class="ind-value ${lsC}">${lsS}</div><div class="ind-sub">散戶情緒</div></div><div class="ind"><div class="ind-label">爆倉傾向</div><div class="ind-value ${lqC}">${lqS}</div><div class="ind-sub">近期爆倉</div></div></div><div class="score-section"><div class="score-header"><span class="score-title">SIGNAL STRENGTH</span><span class="score-num" style="color:${barColor}">${signal.score>0?'+':''}${signal.score.toFixed(1)}</span></div><div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${barColor}"></div></div></div><div class="reason-tags">${tags||'<span style="font-size:10px;color:var(--text3)">數據不足</span>'}</div></div>`;
 }
 function showDetail(symbol){
   const d=allData.find(x=>x.symbol===symbol);if(!d)return;
@@ -1059,7 +1063,7 @@ function wlRenderCard(d){
   const catLabel=category==='major'?'<span class="coin-cat cat-major">主流</span>':'<span class="coin-cat cat-alt">山寨</span>';
   const tags=signal.reasons.slice(0,2).map(r=>`<span class="tag tag-${r.t}">${r.x}</span>`).join('');
   const summaryLine=signal.summary?.[0]||'';
-  return `<div class="card ${cardCls}" onclick="showDetail('${symbol}')"><div class="card-topbar"><span class="card-grade ${gradeCls[grade]||'grade-D'}">等級 ${grade}</span><div style="display:flex;gap:6px;align-items:center">${corrHtml}${dailyHtml}<button onclick="event.stopPropagation();wlRemoveSymbol('${symbol}')" style="background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .2s" onmouseover="this.style.borderColor='var(--short)';this.style.color='var(--short)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕ 移除</button></div></div><div class="card-header"><div class="coin-info"><div class="coin-icon">${base.slice(0,4)}</div><div><div class="coin-name">${base}</div><div class="coin-meta">${catLabel}<span>${fmtV(stats?.futuresVol||0)}</span></div></div></div><div class="card-right"><span class="signal-badge ${badgeCls}">${signal.label}</span><div class="price">$${fmtP(stats?.spotPrice||0)}</div><div class="price-change ${stats?.spotChange>=0?'up':'down'}">${(stats?.spotChange>=0?'+':'')+stats?.spotChange.toFixed(2)+'%'}</div></div></div>${summaryLine?`<div style="padding:6px 12px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);line-height:1.5">💬 ${summaryLine}</div>`:''}<div class="mtf-row">${mtfHtml}</div>${conflictHtml}<div class="indicators"><div class="ind"><div class="ind-label">現貨 CVD</div><div class="ind-value ${sc2}">${scS}</div><div class="ind-sub">主力方向</div></div><div class="ind"><div class="ind-label">合約 CVD</div><div class="ind-value ${fc2}">${fcS}</div><div class="ind-sub">槓桿方向</div></div><div class="ind"><div class="ind-label">OI 變化</div><div class="ind-value ${oiC}">${oiS}</div><div class="ind-sub">8H/1H ${d.oi1hPct!==null?(d.oi1hPct>0?'+':'')+d.oi1hPct.toFixed(2)+'%':'--'}</div></div><div class="ind"><div class="ind-label">資金費率</div><div class="ind-value ${fC}">${fS}</div><div class="ind-sub">擁擠方向</div></div><div class="ind"><div class="ind-label">多空比</div><div class="ind-value ${lsC}">${lsS}</div><div class="ind-sub">散戶情緒</div></div><div class="ind"><div class="ind-label">爆倉傾向</div><div class="ind-value ${lqC}">${lqS}</div><div class="ind-sub">近期爆倉</div></div></div><div class="score-section"><div class="score-header"><span class="score-title">SIGNAL STRENGTH</span><span class="score-num" style="color:${barColor}">${signal.score>0?'+':''}${signal.score.toFixed(1)}</span></div><div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${barColor}"></div></div></div><div class="reason-tags">${tags||'<span style="font-size:10px;color:var(--text3)">數據不足</span>'}</div></div>`;
+  return `<div class="card ${cardCls}" onclick="showDetail('${symbol}')"><div class="card-topbar"><span class="card-grade ${gradeCls[grade]||'grade-D'}">等級 ${grade}</span><div style="display:flex;gap:6px;align-items:center">${corrHtml}${dailyHtml}<button onclick="event.stopPropagation();wlRemoveSymbol('${symbol}')" style="background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .2s" onmouseover="this.style.borderColor='var(--short)';this.style.color='var(--short)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕ 移除</button></div></div><div class="card-header"><div class="coin-info"><div class="coin-icon">${base.slice(0,4)}</div><div><div class="coin-name">${base}</div><div class="coin-meta">${catLabel}<span>${fmtV(stats?.futuresVol||0)}</span></div></div></div><div class="card-right"><span class="signal-badge ${badgeCls}">${signal.label}</span><div class="price" data-lp="${symbol}">$${fmtP(stats?.spotPrice||0)}</div><div class="price-change ${stats?.spotChange>=0?'up':'down'}" data-lc="${symbol}">${(stats?.spotChange>=0?'+':'')+stats?.spotChange.toFixed(2)+'%'}</div></div></div>${summaryLine?`<div style="padding:6px 12px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);line-height:1.5">💬 ${summaryLine}</div>`:''}<div class="mtf-row">${mtfHtml}</div>${conflictHtml}<div class="indicators"><div class="ind"><div class="ind-label">現貨 CVD</div><div class="ind-value ${sc2}">${scS}</div><div class="ind-sub">主力方向</div></div><div class="ind"><div class="ind-label">合約 CVD</div><div class="ind-value ${fc2}">${fcS}</div><div class="ind-sub">槓桿方向</div></div><div class="ind"><div class="ind-label">OI 變化</div><div class="ind-value ${oiC}">${oiS}</div><div class="ind-sub">8H/1H ${d.oi1hPct!==null?(d.oi1hPct>0?'+':'')+d.oi1hPct.toFixed(2)+'%':'--'}</div></div><div class="ind"><div class="ind-label">資金費率</div><div class="ind-value ${fC}">${fS}</div><div class="ind-sub">擁擠方向</div></div><div class="ind"><div class="ind-label">多空比</div><div class="ind-value ${lsC}">${lsS}</div><div class="ind-sub">散戶情緒</div></div><div class="ind"><div class="ind-label">爆倉傾向</div><div class="ind-value ${lqC}">${lqS}</div><div class="ind-sub">近期爆倉</div></div></div><div class="score-section"><div class="score-header"><span class="score-title">SIGNAL STRENGTH</span><span class="score-num" style="color:${barColor}">${signal.score>0?'+':''}${signal.score.toFixed(1)}</span></div><div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${barColor}"></div></div></div><div class="reason-tags">${tags||'<span style="font-size:10px;color:var(--text3)">數據不足</span>'}</div></div>`;
 }
 document.addEventListener('click',e=>{if(!e.target.closest('#wlSearchInput')&&!e.target.closest('#wlSuggestBox'))document.getElementById('wlSuggestBox').style.display='none';});
 
@@ -1212,7 +1216,7 @@ async function loadAnomalyRadar(){
       return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
         <td style="padding:10px 10px">
           <div style="font-weight:bold;color:#fff;font-size:13px">${base}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${fmtV(r.volume)} · $${fmtP(r.price)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${fmtV(r.volume)} · <span data-lp="${r.symbol}">$${fmtP(r.price)}</span></div>
         </td>
         <td style="padding:10px 10px;text-align:center">
           <div style="font-weight:bold;color:${volBarColor};margin-bottom:3px">${r.volRatio.toFixed(1)}x</div>
@@ -1246,11 +1250,75 @@ async function loadAnomalyRadar(){
 wlUpdateBadge();
 wlRender();
 setInterval(()=>{if(!wlLoading&&document.getElementById('watchlistSection').classList.contains('show'))wlRefreshAll();},5*60*1000);
+// ── 即時價格 WebSocket ─────────────────────────────────────
+const livePrice = new Map();
+let _ws = null, _wsPending = false;
+
+function _flash(el, up) {
+  el.classList.remove('lp-up','lp-dn');
+  void el.offsetWidth;
+  el.classList.add(up ? 'lp-up' : 'lp-dn');
+}
+
+function _applyLive() {
+  _wsPending = false;
+
+  // ① Ticker bar (by fixed IDs)
+  const TK = {BTCUSDT:'BTC',ETHUSDT:'ETH',BNBUSDT:'BNB',SOLUSDT:'SOL'};
+  for (const [sym, base] of Object.entries(TK)) {
+    const d = livePrice.get(sym); if (!d) continue;
+    const pEl = document.getElementById('tk'+base+'p');
+    const cEl = document.getElementById('tk'+base+'c');
+    if (pEl) {
+      const prev = parseFloat(pEl.dataset.prev || d.p);
+      if (d.p !== prev) { _flash(pEl, d.p > prev); pEl.dataset.prev = d.p; }
+      pEl.textContent = '$' + fmtP(d.p);
+    }
+    if (cEl) {
+      cEl.textContent = (d.c >= 0 ? '+' : '') + d.c.toFixed(2) + '%';
+      cEl.className = 'ticker-chg ' + (d.c >= 0 ? 't-up' : 't-dn');
+    }
+  }
+
+  // ② Scanner + watchlist cards (data-lp = price, data-lc = change%)
+  document.querySelectorAll('[data-lp]').forEach(el => {
+    const d = livePrice.get(el.dataset.lp); if (!d) return;
+    const prev = parseFloat(el.dataset.prev || d.p);
+    if (d.p !== prev) { _flash(el, d.p > prev); el.dataset.prev = d.p; }
+    el.textContent = '$' + fmtP(d.p);
+  });
+  document.querySelectorAll('[data-lc]').forEach(el => {
+    const d = livePrice.get(el.dataset.lc); if (!d) return;
+    el.textContent = (d.c >= 0 ? '+' : '') + d.c.toFixed(2) + '%';
+    el.className = el.className.replace(/\bup\b|\bdown\b/g, d.c >= 0 ? 'up' : 'down');
+  });
+}
+
+function startWS() {
+  if (_ws) { try { _ws.close(); } catch(e){} }
+  _ws = new WebSocket('wss://fstream.binance.com/ws/!miniTicker@arr');
+
+  _ws.onmessage = e => {
+    JSON.parse(e.data).forEach(t => {
+      const p = parseFloat(t.c), o = parseFloat(t.o);
+      livePrice.set(t.s, { p, c: o > 0 ? (p - o) / o * 100 : 0 });
+    });
+    if (!_wsPending) {
+      _wsPending = true;
+      requestAnimationFrame(_applyLive);
+    }
+  };
+
+  _ws.onclose = () => setTimeout(startWS, 3000);
+  _ws.onerror = () => { try { _ws.close(); } catch(e){} };
+}
+
 // Init — auto-start on page load
 loadFearGreed();
 loadBTCBias();
 updateBTCDom();
 startLoad();
+setTimeout(startWS, 1500);
 </script>
 </body>
 </html>
