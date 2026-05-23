@@ -347,6 +347,7 @@ select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);p
   <div class="sec-tab active" onclick="showSection('scanner')">幣種掃描</div>
   <div class="sec-tab" onclick="showSection('alerts')">OI 異常警報 <span id="alertBadge" style="font-family:var(--mono);font-size:10px;color:var(--neutral)"></span></div>
   <div class="sec-tab" onclick="showSection('watchlist')">⭐ 自選清單 <span id="watchlistBadge" style="font-family:var(--mono);font-size:10px;color:var(--accent)"></span></div>
+  <div class="sec-tab" onclick="showSection('anomaly')">🚨 暴漲雷達</div>
   <div class="sec-tab" onclick="showSection('grade')">訊號評級說明</div>
 </div>
 <div class="alerts-section" id="alertsSection">
@@ -393,6 +394,57 @@ select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);p
       <h4>⚡ 日線偏見衝突警告</h4>
       <p style="font-size:12px;color:var(--text2);line-height:1.8">當短線訊號與日線方向相反時，卡片上方會顯示<span style="color:var(--neutral)">「⚠ 逆勢」</span>警告。逆勢操作失敗率較高，建議等待日線偏見轉向後再進場，或縮小倉位。</p>
     </div>
+  </div>
+</div>
+<div class="alerts-section" id="anomalySection">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div>
+      <div style="font-family:var(--mono);font-size:14px;font-weight:bold;color:#fff;margin-bottom:4px">🚨 暴漲暴跌雷達</div>
+      <div style="font-size:11px;color:var(--text3)">掃描全市場 · 偵測成交量異常爆增的幣種 · 高機率暴漲/暴跌候選</div>
+    </div>
+    <button id="anomalyRefreshBtn" onclick="loadAnomalyRadar()" style="background:var(--border2);border:1px solid var(--border2);color:var(--text);padding:8px 16px;border-radius:7px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.background='var(--border2)';this.style.borderColor='var(--border2)'">⟳ 重新掃描</button>
+  </div>
+  <div id="anomalyStats" style="display:none;margin-bottom:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <div style="display:flex">
+      <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--accent)" id="anomalyTotal">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">掃描幣種</div></div>
+      <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--neutral)" id="anomalyCount">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">量爆異常</div></div>
+      <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--long)" id="anomalyLong">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">多頭候選</div></div>
+      <div style="flex:1;padding:10px 14px;text-align:center"><div style="font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--short)" id="anomalyShort">--</div><div style="font-size:10px;color:var(--text3);margin-top:2px">空頭候選</div></div>
+    </div>
+  </div>
+  <div id="anomalyProgress" style="display:none;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text2)" id="anomalyProgressText">掃描中...</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--accent)" id="anomalyProgressPct">0%</span>
+    </div>
+    <div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden"><div style="height:100%;background:linear-gradient(90deg,var(--accent),var(--neutral));border-radius:2px;transition:width .4s" id="anomalyProgressFill"></div></div>
+  </div>
+  <div id="anomalyEmpty" style="text-align:center;padding:60px 20px;color:var(--text3);font-family:var(--mono);font-size:13px">
+    <div style="font-size:40px;margin-bottom:14px">🚨</div>
+    <div style="margin-bottom:8px">點擊「重新掃描」開始偵測異常幣種</div>
+    <div style="font-size:11px">掃描全市場成交量 · 約需 30 秒</div>
+  </div>
+  <div id="anomalyTable" style="display:none">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-family:var(--mono)">
+      評分 = 成交量倍數×10 + |漲跌幅|×0.5 + 資金費率極端×20 · 只顯示量爆 ≥2x 的幣種
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border2)">
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">排名</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">幣種</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">24h漲跌</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">成交量倍數</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">資金費率</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">方向判斷</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text3);font-size:10px;letter-spacing:1px;font-weight:normal">異常評分</th>
+          </tr>
+        </thead>
+        <tbody id="anomalyTbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;font-size:10px;color:var(--text3)">⚠ 僅供參考，不構成投資建議。暴漲前後往往伴隨高風險。</div>
   </div>
 </div>
 <div class="alerts-section" id="watchlistSection">
@@ -925,11 +977,13 @@ function showDetail(symbol){
 function closeModal(e){if(e.target===document.getElementById('modalOverlay'))closeModalDirect();}
 function closeModalDirect(){document.getElementById('modalOverlay').classList.remove('show');}
 function showSection(sec){
-  document.querySelectorAll('.sec-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&sec==='scanner')||(i===1&&sec==='alerts')||(i===2&&sec==='watchlist')||(i===3&&sec==='grade')));
+  document.querySelectorAll('.sec-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&sec==='scanner')||(i===1&&sec==='alerts')||(i===2&&sec==='watchlist')||(i===3&&sec==='anomaly')||(i===4&&sec==='grade')));
   document.getElementById('scannerSection').classList.toggle('show',sec==='scanner');
   document.getElementById('alertsSection').classList.toggle('show',sec==='alerts');
   document.getElementById('watchlistSection').classList.toggle('show',sec==='watchlist');
+  document.getElementById('anomalySection').classList.toggle('show',sec==='anomaly');
   document.getElementById('gradeSection').classList.toggle('show',sec==='grade');
+  if(sec==='anomaly'&&!anomalyLoaded)loadAnomalyRadar();
 }
 function setFilter(f){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.className='filter-btn');const map={all:'filterAll',long:'filterLong',short:'filterShort',neutral:'filterNeutral'};const cls={all:'active',long:'long-active',short:'short-active',neutral:'active'};document.getElementById(map[f]).className='filter-btn '+cls[f];renderAll();}
 function setCatTab(cat){currentCat=cat;document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));document.getElementById({all:'tabAll',major:'tabMajor',alt:'tabAlt'}[cat]).classList.add('active');renderAll();}
@@ -1008,6 +1062,155 @@ function wlRenderCard(d){
   return `<div class="card ${cardCls}" onclick="showDetail('${symbol}')"><div class="card-topbar"><span class="card-grade ${gradeCls[grade]||'grade-D'}">等級 ${grade}</span><div style="display:flex;gap:6px;align-items:center">${corrHtml}${dailyHtml}<button onclick="event.stopPropagation();wlRemoveSymbol('${symbol}')" style="background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .2s" onmouseover="this.style.borderColor='var(--short)';this.style.color='var(--short)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕ 移除</button></div></div><div class="card-header"><div class="coin-info"><div class="coin-icon">${base.slice(0,4)}</div><div><div class="coin-name">${base}</div><div class="coin-meta">${catLabel}<span>${fmtV(stats?.futuresVol||0)}</span></div></div></div><div class="card-right"><span class="signal-badge ${badgeCls}">${signal.label}</span><div class="price">$${fmtP(stats?.spotPrice||0)}</div><div class="price-change ${stats?.spotChange>=0?'up':'down'}">${(stats?.spotChange>=0?'+':'')+stats?.spotChange.toFixed(2)+'%'}</div></div></div>${summaryLine?`<div style="padding:6px 12px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);line-height:1.5">💬 ${summaryLine}</div>`:''}<div class="mtf-row">${mtfHtml}</div>${conflictHtml}<div class="indicators"><div class="ind"><div class="ind-label">現貨 CVD</div><div class="ind-value ${sc2}">${scS}</div><div class="ind-sub">主力方向</div></div><div class="ind"><div class="ind-label">合約 CVD</div><div class="ind-value ${fc2}">${fcS}</div><div class="ind-sub">槓桿方向</div></div><div class="ind"><div class="ind-label">OI 變化</div><div class="ind-value ${oiC}">${oiS}</div><div class="ind-sub">8H/1H ${d.oi1hPct!==null?(d.oi1hPct>0?'+':'')+d.oi1hPct.toFixed(2)+'%':'--'}</div></div><div class="ind"><div class="ind-label">資金費率</div><div class="ind-value ${fC}">${fS}</div><div class="ind-sub">擁擠方向</div></div><div class="ind"><div class="ind-label">多空比</div><div class="ind-value ${lsC}">${lsS}</div><div class="ind-sub">散戶情緒</div></div><div class="ind"><div class="ind-label">爆倉傾向</div><div class="ind-value ${lqC}">${lqS}</div><div class="ind-sub">近期爆倉</div></div></div><div class="score-section"><div class="score-header"><span class="score-title">SIGNAL STRENGTH</span><span class="score-num" style="color:${barColor}">${signal.score>0?'+':''}${signal.score.toFixed(1)}</span></div><div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${barColor}"></div></div></div><div class="reason-tags">${tags||'<span style="font-size:10px;color:var(--text3)">數據不足</span>'}</div></div>`;
 }
 document.addEventListener('click',e=>{if(!e.target.closest('#wlSearchInput')&&!e.target.closest('#wlSuggestBox'))document.getElementById('wlSuggestBox').style.display='none';});
+
+// ── 暴漲雷達 ──────────────────────────────────────────────
+let anomalyLoaded=false, anomalyLoading=false;
+
+async function loadAnomalyRadar(){
+  if(anomalyLoading)return;
+  anomalyLoading=true;
+  anomalyLoaded=false;
+  document.getElementById('anomalyRefreshBtn').disabled=true;
+  document.getElementById('anomalyEmpty').style.display='none';
+  document.getElementById('anomalyTable').style.display='none';
+  document.getElementById('anomalyStats').style.display='none';
+  document.getElementById('anomalyProgress').style.display='block';
+
+  const setP=(pct,txt)=>{
+    document.getElementById('anomalyProgressFill').style.width=pct+'%';
+    document.getElementById('anomalyProgressPct').textContent=pct+'%';
+    document.getElementById('anomalyProgressText').textContent=txt;
+  };
+
+  try{
+    setP(5,'取得所有合約幣種...');
+    const info=await fapi('/fapi/v1/exchangeInfo');
+    const allSyms=info.symbols
+      .filter(s=>s.status==='TRADING'&&s.quoteAsset==='USDT')
+      .map(s=>s.symbol);
+
+    setP(15,'取得 24h 行情...');
+    const tickers=await fapi('/fapi/v1/ticker/24hr');
+    const tickerMap={};
+    tickers.forEach(t=>tickerMap[t.symbol]=t);
+
+    setP(20,'取得資金費率...');
+    const pIndex=await fapi('/fapi/v1/premiumIndex');
+    const frMap={};
+    pIndex.forEach(p=>frMap[p.symbol]=parseFloat(p.lastFundingRate)*100);
+
+    // Filter: USDT pairs with volume > $2M
+    const STABLE=new Set(['USDCUSDT','BUSDUSDT','TUSDUSDT','FDUSDUSDT','USDTUSDT','DAIUSDT']);
+    const candidates=allSyms
+      .filter(s=>!STABLE.has(s)&&tickerMap[s])
+      .map(s=>{
+        const t=tickerMap[s];
+        return{symbol:s,price:parseFloat(t.lastPrice),
+          priceChange:parseFloat(t.priceChangePercent),
+          volume:parseFloat(t.quoteVolume),
+          fundingRate:frMap[s]||0};
+      })
+      .filter(d=>d.volume>2e6);
+
+    // Take top 80 by abs(priceChange) for kline lookup
+    candidates.sort((a,b)=>Math.abs(b.priceChange)-Math.abs(a.priceChange));
+    const top80=candidates.slice(0,80);
+
+    document.getElementById('anomalyTotal').textContent=candidates.length;
+    document.getElementById('anomalyStats').style.display='block';
+
+    const results=[];
+    for(let i=0;i<top80.length;i++){
+      const d=top80[i];
+      setP(20+Math.round(i/top80.length*70),`分析 ${d.symbol.replace('USDT','')} (${i+1}/${top80.length})`);
+      try{
+        const klines=await fapi(`/fapi/v1/klines?symbol=${d.symbol}&interval=1d&limit=26`);
+        if(klines.length<22)continue;
+
+        // Volume ratio: today vs 20-day avg (exclude today)
+        const vols=klines.slice(-21,-1).map(k=>parseFloat(k[7]));
+        const avgVol=vols.reduce((a,b)=>a+b,0)/vols.length;
+        const todayVol=parseFloat(klines[klines.length-1][7]);
+        const volRatio=avgVol>0?todayVol/avgVol:1;
+
+        if(volRatio<2.0)continue;  // must be at least 2x avg
+
+        // CVD last 5 days
+        const cvdSum=klines.slice(-5).reduce((s,k)=>{
+          const buy=parseFloat(k[9]),total=parseFloat(k[5]);
+          return s+(buy-(total-buy));
+        },0);
+
+        // Direction logic
+        const priceUp=d.priceChange>0;
+        const cvdBull=cvdSum>0;
+        const frExtreme=Math.abs(d.fundingRate)>0.08;
+        const frBearish=d.fundingRate>0.08;  // over-leveraged longs = dump risk
+
+        let direction,dirLabel,dirColor;
+        if(priceUp&&cvdBull&&!frBearish){
+          direction='long';dirLabel='多頭候選';dirColor='var(--long)';
+        }else if(priceUp&&frBearish){
+          direction='short';dirLabel='多單擠壓';dirColor='var(--short)';
+        }else if(!priceUp&&!cvdBull){
+          direction='short';dirLabel='空頭候選';dirColor='var(--short)';
+        }else{
+          direction='neutral';dirLabel='待確認';dirColor='var(--neutral)';
+        }
+
+        const score=volRatio*10+Math.abs(d.priceChange)*0.5+(frExtreme?20:0);
+
+        results.push({...d,volRatio,avgVol,cvdBull,direction,dirLabel,dirColor,score});
+      }catch(e){/* skip */}
+    }
+
+    results.sort((a,b)=>b.score-a.score);
+
+    const longCount=results.filter(r=>r.direction==='long').length;
+    const shortCount=results.filter(r=>r.direction==='short').length;
+    document.getElementById('anomalyCount').textContent=results.length;
+    document.getElementById('anomalyLong').textContent=longCount;
+    document.getElementById('anomalyShort').textContent=shortCount;
+
+    const medals=['🥇','🥈','🥉'];
+    const tbody=document.getElementById('anomalyTbody');
+    tbody.innerHTML=results.slice(0,30).map((r,i)=>{
+      const base=r.symbol.replace('USDT','');
+      const chgCls=r.priceChange>=0?'color:var(--long)':'color:var(--short)';
+      const chgStr=(r.priceChange>=0?'+':'')+r.priceChange.toFixed(2)+'%';
+      const volBarW=Math.min(r.volRatio/10*100,100);
+      const volBarColor=r.volRatio>=5?'var(--short)':r.volRatio>=3?'var(--neutral)':'var(--long)';
+      const frStr=(r.fundingRate>=0?'+':'')+r.fundingRate.toFixed(4)+'%';
+      const frCls=r.fundingRate>0.08?'color:var(--short)':r.fundingRate<-0.05?'color:var(--long)':'color:var(--text2)';
+      const rank=i<3?medals[i]:`#${i+1}`;
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
+        <td style="padding:10px 10px;color:var(--text3);font-size:13px">${rank}</td>
+        <td style="padding:10px 10px"><div style="font-weight:bold;color:#fff;font-size:13px">${base}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${fmtV(r.volume)} vol</div></td>
+        <td style="padding:10px 10px;text-align:right;font-weight:bold;${chgCls}">${chgStr}</td>
+        <td style="padding:10px 10px;text-align:center">
+          <div style="font-weight:bold;color:${volBarColor};margin-bottom:3px">${r.volRatio.toFixed(1)}x</div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;width:80px;margin:0 auto"><div style="height:100%;width:${volBarW}%;background:${volBarColor};border-radius:2px"></div></div>
+        </td>
+        <td style="padding:10px 10px;text-align:right;${frCls}">${frStr}</td>
+        <td style="padding:10px 10px;text-align:center"><span style="font-size:11px;font-weight:bold;color:${r.dirColor};background:${r.dirColor}22;padding:2px 8px;border-radius:4px;border:1px solid ${r.dirColor}44">${r.dirLabel}</span></td>
+        <td style="padding:10px 10px;text-align:right;font-weight:bold;color:var(--neutral)">${r.score.toFixed(1)}</td>
+      </tr>`;
+    }).join('');
+
+    setP(100,'掃描完成');
+    setTimeout(()=>{document.getElementById('anomalyProgress').style.display='none';},800);
+    document.getElementById('anomalyTable').style.display='block';
+    anomalyLoaded=true;
+
+  }catch(e){
+    console.error('anomaly radar error',e);
+    document.getElementById('anomalyProgress').style.display='none';
+    document.getElementById('anomalyEmpty').style.display='block';
+  }finally{
+    anomalyLoading=false;
+    document.getElementById('anomalyRefreshBtn').disabled=false;
+  }
+}
 wlUpdateBadge();
 wlRender();
 setInterval(()=>{if(!wlLoading&&document.getElementById('watchlistSection').classList.contains('show'))wlRefreshAll();},5*60*1000);
