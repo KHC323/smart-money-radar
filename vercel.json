@@ -1,7 +1,14 @@
 {
   "regions": ["sin1"],
   "rewrites": [
-    { "source": "/proxy/:path*", "destination": "/api/index" },
-    { "source": "/health",       "destination": "/api/index" }
+    { "source": "/proxy/:path*",    "destination": "/api/index" },
+    { "source": "/health",          "destination": "/api/index" },
+    { "source": "/api/daily-news",  "destination": "/api/index" }
+  ],
+  "crons": [
+    {
+      "path": "/api/daily-news",
+      "schedule": "0 0 * * *"
+    }
   ]
 }
